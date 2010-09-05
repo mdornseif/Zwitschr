@@ -19,6 +19,7 @@ from google.appengine.ext import db
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp import util
+import base64
 import datetime
 import django.utils.safestring
 import hashlib
@@ -27,12 +28,25 @@ import os
 import re
 import urllib
 import urlparse
-
+import uuid
 
 # http://daringfireball.net/2010/07/improved_regex_for_matching_urls
 url_re = re.compile(r'''(?i)\b((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))''')
 def linkreplace(matchobj):
     return '<a href="%s">%s</a>' % (urllib.quote(matchobj.group(0), "_.-/:@"), matchobj.group(0))
+
+
+def guid128(salt=None):
+    """Generates an 26 character ID which should be globally unique.
+    
+    >>> guid128()
+    'MTB2ONDSL3YWJN3CA6XIG7O4HM'
+    
+    """
+    if salt:
+        data = "%s%s%s" % (salt, uuid.uuid1(), salt)
+        return str(base64.b32encode(hashlib.md5(data).digest()).rstrip('='))
+    return str(base64.b32encode(uuid.uuid1().bytes).rstrip('='))
 
 
 # Nutzer MIGHT map to a google user object
@@ -56,6 +70,13 @@ class Nutzer(db.Expando):
             })
         return 'http://www.gravatar.com/avatar/?%s' % query
 
+    def timeline(self, itemcount=50):
+        zwitsches = []
+        for follow in self.following:
+            for z in follow.nutzer.zwitsches.order('-created_at').fetch(itemcount):
+                zwitsches.append(z)
+        zwitsches.sort()
+        return zwitsches[:itemcount]
 
 
 class Followed(db.Expando):
@@ -117,8 +138,8 @@ class Zwitsch(db.Expando):
         return ret
 
 
-def create_zwitch(content, user=None, email=None, handle=None, guid=None, in_reply_to=None, created_at=None):
-    if Zwitsch.get_by_key_name(guid):
+def create_zwitch(content, user=None, email=None, handle=None, guid=None, in_reply_to='', created_at=None, source=''):
+    if guid and Zwitsch.get_by_key_name(guid):
         raise ValueError("Duplicate GUID %s" % guid)
     content = content.replace('\n', ' ').replace('\r', ' ')
     if (not email) and user and user.email():
@@ -133,7 +154,9 @@ def create_zwitch(content, user=None, email=None, handle=None, guid=None, in_rep
         nutzer.put()
     else:
         nutzer = nutzerresults[0]
-    zwitsch = Zwitsch(key_name=guid, guid=guid, content=content, handle=handle, in_reply_to=in_reply_to, nutzer=nutzer)
+    if not guid:
+        guid = guid128()
+    zwitsch = Zwitsch(key_name=guid, guid=guid, content=content, handle=handle, in_reply_to=in_reply_to, nutzer=nutzer, source=source)
     if user:
         zwitsch.user = user
     if email:

@@ -205,7 +205,7 @@ def build_entry(zwitsch):
 
 def build_timeline(nutzer):
     entries = []
-    for zwitsch in nutzer.zwitsches.order('-created_at').fetch(30):
+    for zwitsch in nutzer.timeline():
         entries.append(build_entry(zwitsch))
     return entries
 
@@ -225,3 +225,6 @@ def timeline_as_xml(nutzer, urlfixer=None):
 def timeline_as_json(nutzer, urlfixer=None):
     return json.dumps(build_timeline(nutzer))
 
+
+def zwitsch_as_xml(zwitsch):
+    return ET.tostring(ConvertDictToXml(build_entry(zwitsch), 'status'))

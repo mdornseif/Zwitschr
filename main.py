@@ -39,7 +39,8 @@ class ZwitscherRequestHandler(webapp.RequestHandler):
 
         results = models.Nutzer.all().filter('user =', user)
         if results.count() < 1:
-            aktueller_nutzer = models.Nutzer(email=user.email(), user=user, handle=email_to_handle(user.email()))
+            aktueller_nutzer = models.Nutzer(email=user.email(), user=user,
+                                             handle=models.email_to_handle(user.email()))
         else:
             aktueller_nutzer = results[0]
         
@@ -52,13 +53,8 @@ class ZwitscherRequestHandler(webapp.RequestHandler):
 class TimelineHandler(ZwitscherRequestHandler):
     def get(self):
         aktueller_nutzer = self.get_aktueller_nutzer()
-        zwitsches = []
-        for follow in aktueller_nutzer.following:
-            for z in follow.nutzer.zwitsches:
-                zwitsches.append(z)
-        zwitsches.sort()
         template_values = {
-            'zwitsches': zwitsches,
+            'zwitsches': aktueller_nutzer.timeline(),
             'aktueller_nutzer': aktueller_nutzer,
             }
         path = os.path.join(os.path.dirname(__file__), 'templates/index.html')
@@ -77,7 +73,6 @@ class MainHandler(ZwitscherRequestHandler):
         self.response.out.write(template.render(path, template_values))
 
     def post(self):
-        logging.info("HERE")
         args = dict(content=self.request.get('content'))
         if self.request.get('created_at'):
             # timezonehandling needs more thought
@@ -189,6 +184,19 @@ class UserFollowHandler(ZwitscherRequestHandler):
                 followship.delete()
             self.response.out.write("OK")
 
+class ApiUpdate(ZwitscherRequestHandler):
+    def post(self):
+        logging.info(self.request.get('status'))
+        logging.info(self.request.get('source'))
+        # in_reply_to_status_id
+        args = dict(handle='mdornseif', content=self.request.get('status'), source=self.request.get('source'))
+        if self.request.get('in_reply_to_status_id'):
+            args['in_reply_to'] = self.request.get('in_reply_to_status_id')
+        zwitsch = models.create_zwitch(**args)
+        self.response.headers['content-type'] = 'application/xml; charset=utf-8'
+        self.response.out.write(formats.zwitsch_as_xml(zwitsch))
+
+
 
 class ApiTimeline(ZwitscherRequestHandler):
     def get(self):
@@ -245,6 +253,7 @@ def main():
         # API
         ('/statuses/friends_timeline.rss', ApiTimelineRSS),
         ('/statuses/friends_timeline.xml', ApiTimeline),
+        ('/statuses/update.xml', ApiUpdate),
         ('/statuses/replies.xml', ApiReplies),
         ('/statuses/mentions.xml', ApiReplies),
         ('/account/rate_limit_status.xml', ApiRateLimit),
