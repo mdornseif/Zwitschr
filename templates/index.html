@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block body %}
+<div id="header">
+    <h1><a href="/">Zwitschr!</a></h1>
+</div>
+
+<div id="zwitsches">
+  {% for zwitsch in zwitsches %}
+    {{ zwitsch }}
+  {% endfor %}
+</div>
+{% endblock %}
+
+                <form id="form_notice" class="form" method="post" action="." name="form_notice">
+                    <fieldset>
+                        <legend>Send a notice</legend><label for="notice_data-text">What's up, mdornseif?</label> 
+                        <textarea id="notice_data-text" cols="35" rows="4" name="status_textarea"></textarea>
+                        <dl class="form_note">
+                            <dt>
+                                Available characters
+                            </dt>
+                            <dd id="notice_text-count">
+                                140
+                            </dd>
+                        </dl>
+                    </fieldset><input type="hidden" name="ajax" value="1">
+                </form>

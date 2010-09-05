@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block body %}
+<div id="header">
+    <h1><a href="/">Zwitschr!</a></h1>
+</div>
+<div id="mainzwitsch">{{ zwitsch }}</div>
+
+<div id="parents">
+    <ul>{{ zwitsch.get_parents|unordered_list }}</ul>
+</div>
+{% endblock %}
