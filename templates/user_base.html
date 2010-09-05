@@ -1,10 +1,5 @@
 {% extends "base.html" %}
-{% block body %}
-<div id="header">
-    <h1><a href="/">Zwitschr!</a></h1>
-</div>
-
-<div id="content">
+{% block content %}
   <a href="{{nutzer.get_url}}/change_follow_status">Follow</a>
   <img src="{{nutzer.gravatar}}">
 
@@ -13,9 +8,9 @@
       {{ zwitsch }}
     {% endfor %}
   </div>
-</div>
+{% endblock %}
 
-<div id="sidebar">
+{% block sidebar %}
     <div>
         <h3>Subscriptions</h3>
         {% for follower in nutzer.following %}
@@ -28,9 +23,4 @@
             <a href="{{follower.followed_by.get_url}}"><img alt="{{follower.followed_by.handle}}" src="{{follower.followed_by.gravatar}}"></a>
         {% endfor %}
     </div>
-        
-</div>
-
-
 {% endblock %}
-

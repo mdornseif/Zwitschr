@@ -1,0 +1,11 @@
+{% extends "user_base.html" %}
+{% block content %}
+  <a href="{{nutzer.get_url}}/change_follow_status">Follow</a>
+  <img src="{{nutzer.gravatar}}">
+
+  <div id="zwitsches">
+    {% for zwitsch in zwitsches %}
+      {{ zwitsch }}
+    {% endfor %}
+  </div>
+{% endblock %}

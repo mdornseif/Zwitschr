@@ -15,3 +15,9 @@ indexes:
   - name: handle
   - name: created_at
     direction: desc
+
+- kind: Zwitsch
+  properties:
+  - name: nutzer
+  - name: created_at
+    direction: desc
