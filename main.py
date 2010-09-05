@@ -22,9 +22,14 @@ import urllib
 import urlparse
 
 import models
+import formats
 
 
 class ZwitscherRequestHandler(webapp.RequestHandler):
+    def _create_absolute_url(self, url):
+        scheme, host, path, query, fragment = urlparse.urlsplit(self.request.url)
+        return urlparse.urljoin('%s://%s' % (scheme, host), url)
+
     def get_aktueller_nutzer(self):
         # force Login
         user = users.get_current_user()
@@ -42,6 +47,22 @@ class ZwitscherRequestHandler(webapp.RequestHandler):
         aktueller_nutzer.logout_url = users.create_logout_url('/')
         aktueller_nutzer.is_admin = users.is_current_user_admin()
         return aktueller_nutzer
+
+
+class TimelineHandler(ZwitscherRequestHandler):
+    def get(self):
+        aktueller_nutzer = self.get_aktueller_nutzer()
+        zwitsches = []
+        for follow in aktueller_nutzer.following:
+            for z in follow.nutzer.zwitsches:
+                zwitsches.append(z)
+        zwitsches.sort()
+        template_values = {
+            'zwitsches': zwitsches,
+            'aktueller_nutzer': aktueller_nutzer,
+            }
+        path = os.path.join(os.path.dirname(__file__), 'templates/index.html')
+        self.response.out.write(template.render(path, template_values))
 
 
 class MainHandler(ZwitscherRequestHandler):
@@ -84,7 +105,7 @@ class MainHandler(ZwitscherRequestHandler):
                 self.error(409)
                 self.response.out.write("Duplicate GUID %s" % self.request.get('guid'))
                 return
-        zwitsch = create_zwitch(**args)
+        zwitsch = models.create_zwitch(**args)
         self.redirect(zwitsch.get_url())
 
 
@@ -138,7 +159,7 @@ class UserHandler(ZwitscherRequestHandler):
                 'aktueller_nutzer': aktueller_nutzer,
                 'nutzer': nutzer
                 }
-            path = os.path.join(os.path.dirname(__file__), 'templates/user.html')
+            path = os.path.join(os.path.dirname(__file__), 'templates/nutzer.html')
             self.response.out.write(template.render(path, template_values))
 
 class UserFollowHandler(ZwitscherRequestHandler):
@@ -160,18 +181,56 @@ class UserFollowHandler(ZwitscherRequestHandler):
                 nutzer = nutzerresults[0]
             
             # aktueller_nutzer wants to follow nutzer
-            Followed(nutzer=nutzer, followed_by=aktueller_nutzer).put()
+            followship = models.Followed.all().filter('nutzer =', nutzer
+                                                      ).filter('followed_by =', aktueller_nutzer).get()
+            if not followship:
+                Followed(nutzer=nutzer, followed_by=aktueller_nutzer).put()
+            else:
+                followship.delete()
             self.response.out.write("OK")
+
+
+class ApiTimeline(ZwitscherRequestHandler):
+    def get(self):
+        nutzer = models.Nutzer.all().filter('handle =', 'mdornseif').get()
+        self.response.headers['content-type'] = 'application/xml; charset=utf-8'
+        self.response.out.write(formats.timeline_as_xml(nutzer, self._create_absolute_url))
+
+
+class ApiTimelineRSS(ZwitscherRequestHandler):
+    def get(self):
+        nutzer = models.Nutzer.all().filter('handle =', 'mdornseif').get()
+        self.response.headers['content-type'] = 'application/xml; charset=utf-8'
+        self.response.out.write(formats.timeline_as_rss(nutzer, self._create_absolute_url))
+
+
+class ApiRateLimit(ZwitscherRequestHandler):
+    """This is a dummy."""
+    def get(self):
+        self.response.headers['content-type'] = 'application/xml; charset=utf-8'
+        self.response.out.write("""<?xml version="1.0" encoding="UTF-8"?>
+<hash>
+    <remaining-hits type="integer">20000</remaining-hits>
+    <hourly-limit type="integer">20000</hourly-limit>
+    <reset-time type="datetime">%s</reset-time>
+    <reset-time-in-seconds type="integer">1</reset-time-in-seconds>
+</hash>""" % datetime.datetime.now().isoformat())
+
+
+class ApiReplies(ZwitscherRequestHandler):
+    """This is a dummy."""
+    def get(self):
+        self.response.headers['content-type'] = 'application/xml; charset=utf-8'
+        self.response.out.write("""<?xml version="1.0" encoding="UTF-8"?>
+<statuses type="array">
+</statuses>""")
+
 
 class XMPPHandler(ZwitscherRequestHandler):
     """Eingehende Nachricht per XMPP/Jabber.
        
        Muss an /_ah/xmpp/message/chat/ gebunden sein."""
         
-    def _create_absolute_url(self, url):
-        scheme, host, path, query, fragment = urlparse.urlsplit(self.request.url)
-        return urlparse.urljoin('%s://%s' % (scheme, host), url)
-
     def post(self):
         message = xmpp.Message(self.request.POST)
         sender = message.sender.split('/')[0]
@@ -180,14 +239,23 @@ class XMPPHandler(ZwitscherRequestHandler):
         self.response.out.write('OK')
 
 
+
 def main():
-    application = webapp.WSGIApplication([('/zwitsch/(.+)', ZwitschHandler),
-                                          ('/nutzer/([a-z]+)/change_follow_status', UserFollowHandler),
-                                          ('/nutzer/([a-z]+)', UserHandler),
-                                          ('/', MainHandler),
-                                          ('/_ah/xmpp/message/chat/', XMPPHandler),
-                                          ],
-                                         debug=True)
+    application = webapp.WSGIApplication([
+        # API
+        ('/statuses/friends_timeline.rss', ApiTimelineRSS),
+        ('/statuses/friends_timeline.xml', ApiTimeline),
+        ('/statuses/replies.xml', ApiReplies),
+        ('/statuses/mentions.xml', ApiReplies),
+        ('/account/rate_limit_status.xml', ApiRateLimit),
+        ('/_ah/xmpp/message/chat/', XMPPHandler),
+        # User facing
+        ('/zwitsch/(.+)', ZwitschHandler),
+        ('/nutzer/([a-z]+)/change_follow_status', UserFollowHandler),
+        ('/nutzer/([a-z]+)', UserHandler),
+        ('/timeline', TimelineHandler),  # Subscribte Tweets
+        ('/', MainHandler),              # Alle Tweets
+        ], debug=True)
     util.run_wsgi_app(application)
 
 

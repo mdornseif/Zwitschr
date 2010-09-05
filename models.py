@@ -40,11 +40,14 @@ class Nutzer(db.Expando):
     handle = db.StringProperty(required=True)
     email = db.EmailProperty(required=False)
     user = db.UserProperty(required=False)
+    avatar_url = db.LinkProperty(required=False)
 
     def get_url(self):
         return "/nutzer/%s" % self.handle
 
     def gravatar(self):
+        if not self.email and self.avatar_url:
+            return avatar_url
         gravhash = hashlib.md5(str(self.email)).hexdigest()
         query = urllib.urlencode({
             'gravatar_id': gravhash,
@@ -60,12 +63,13 @@ class Followed(db.Expando):
     followed_by = db.ReferenceProperty(Nutzer, collection_name='following')
 
 
-class Zwitsch(db.Model):
+class Zwitsch(db.Expando):
     guid =db.StringProperty(required=False)
     content = db.StringProperty(required=True)
     created_at = birthdate = db.DateTimeProperty(auto_now_add=True)
     handle = db.StringProperty(required=True)
     user = db.UserProperty(required=False, auto_current_user_add=True)
+    nutzer = db.ReferenceProperty(Nutzer, collection_name='zwitsches')
     email = db.EmailProperty(required=False)
     source = db.StringProperty(required=False, default='web')
     in_reply_to = db.StringProperty(required=False)
@@ -81,6 +85,9 @@ class Zwitsch(db.Model):
           <p>%(content)s</p>
           <a rel="bookmark" class="timestamp" href="%(link)s"><abbr class="published" title="%(timestamp)s">%(timestamp)s</abbr></a>
         </div>""" % context)
+    
+    def __cmp__(self, other):
+        return cmp((self.created_at, other), (self.created_at, other))
 
     def get_url(self):
         return "/zwitsch/%s" % self.guid
@@ -118,7 +125,15 @@ def create_zwitch(content, user=None, email=None, handle=None, guid=None, in_rep
         email = user.email()
     if (not handle) and email:
         handle = email_to_handle(email)
-    zwitsch = Zwitsch(key_name=guid, guid=guid, content=content, handle=handle, in_reply_to=in_reply_to)
+
+    nutzerresults = Nutzer.all().filter('handle =', handle)
+    if nutzerresults.count() < 1:
+        # Wir müssen den models.Nutzer neu anlegen
+        nutzer = Nutzer(email=email, handle=handle)
+        nutzer.put()
+    else:
+        nutzer = nutzerresults[0]
+    zwitsch = Zwitsch(key_name=guid, guid=guid, content=content, handle=handle, in_reply_to=in_reply_to, nutzer=nutzer)
     if user:
         zwitsch.user = user
     if email:
