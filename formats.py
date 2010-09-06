@@ -22,7 +22,7 @@ def _format_date(dt):
     # Can't use strftime because that's locale dependent
     #
     # Isn't there a standard way to do this for Python?  The
-    # rfc822 and email.Utils modules assume a timestamp.  The
+    # rfc822 and email.Utils modules assume a timestamp. The
     # following is based on the rfc822 module.
     return "%s, %02d %s %04d %02d:%02d:%02d GMT" % (
             ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.weekday()],

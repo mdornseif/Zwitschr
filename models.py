@@ -55,9 +55,16 @@ class Nutzer(db.Expando):
     email = db.EmailProperty(required=False)
     user = db.UserProperty(required=False)
     avatar_url = db.LinkProperty(required=False)
+    api_key = db.StringProperty(required=False)
 
     def get_url(self):
         return "/nutzer/%s" % self.handle
+
+    def get_api_key(self):
+        if not self.api_key:
+            self.api_key = "a%sk" % guid128(salt=self.handle)
+            self.put()
+        return self.api_key
 
     def gravatar(self):
         if not self.email and self.avatar_url:

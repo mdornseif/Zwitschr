@@ -14,15 +14,46 @@ from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp import util
 import datetime
 import django.utils.safestring
+import formats
+import functools
 import hashlib
 import logging
+import models
 import os
 import re
 import urllib
 import urlparse
 
-import models
-import formats
+
+def http_basic_auth(method):
+    "Prefix user to method call. Authenticates using HTTP Basic Authorization."
+    @functools.wraps(method)
+    def http_basic_auth_deco(self, *args):
+        basic_auth = self.request.headers.get('Authorization')
+        if not basic_auth:
+            self.error(401)
+            self.response.headers['Content-Type'] = 'application/xml; charset=utf-8'
+            self.response.headers['WWW-Authenticate'] = 'Basic realm="Zwitscher API"'
+            self.response.out.write('<hash>request>/statuses/replies.xml</request>error>Could not authenticate you.</error></hash>')
+            return
+        username, password = '', ''
+        user_info = basic_auth[6:].decode('base64')
+        username, password = user_info.split(':')
+        nutzer = models.Nutzer.all().filter('handle =', username).filter('api_key =', password).get()
+        if not nutzer:
+            logging.info('wrong credentials %s:%s - ' % (username, password))
+            # if generate api_key if needed
+            nutzer = models.Nutzer.all().filter('handle =', username).get()
+            if nutzer:
+                logging.info(nutzer.get_api_key())
+            self.error(403)
+            self.response.headers['Content-Type'] = 'application/xml; charset=utf-8'
+            self.response.headers['WWW-Authenticate'] = 'Basic realm="Zwitscher API"'
+            self.response.out.write('<?xml version="1.0" encoding="UTF-8"?><errors><error code="32">Could not authenticate you</error></errors>')
+            return
+        else:
+            return method(self, nutzer, *args)
+    return http_basic_auth_deco
 
 
 class ZwitscherRequestHandler(webapp.RequestHandler):
@@ -179,43 +210,42 @@ class UserFollowHandler(ZwitscherRequestHandler):
             followship = models.Followed.all().filter('nutzer =', nutzer
                                                       ).filter('followed_by =', aktueller_nutzer).get()
             if not followship:
-                Followed(nutzer=nutzer, followed_by=aktueller_nutzer).put()
+                models.Followed(nutzer=nutzer, followed_by=aktueller_nutzer).put()
             else:
                 followship.delete()
             self.response.out.write("OK")
 
+
 class ApiUpdate(ZwitscherRequestHandler):
-    def post(self):
-        logging.info(self.request.get('status'))
-        logging.info(self.request.get('source'))
-        # in_reply_to_status_id
-        args = dict(handle='mdornseif', content=self.request.get('status'), source=self.request.get('source'))
+    @http_basic_auth
+    def post(self, nutzer):
+        args = dict(handle=nutzer.handle, content=self.request.get('status'), source=self.request.get('source'))
         if self.request.get('in_reply_to_status_id'):
             args['in_reply_to'] = self.request.get('in_reply_to_status_id')
         zwitsch = models.create_zwitch(**args)
-        self.response.headers['content-type'] = 'application/xml; charset=utf-8'
+        self.response.headers['Content-Type'] = 'application/xml; charset=utf-8'
         self.response.out.write(formats.zwitsch_as_xml(zwitsch))
 
 
-
 class ApiTimeline(ZwitscherRequestHandler):
-    def get(self):
-        nutzer = models.Nutzer.all().filter('handle =', 'mdornseif').get()
-        self.response.headers['content-type'] = 'application/xml; charset=utf-8'
+    @http_basic_auth
+    def get(self, nutzer):
+        self.response.headers['Content-Type'] = 'application/xml; charset=utf-8'
         self.response.out.write(formats.timeline_as_xml(nutzer, self._create_absolute_url))
 
 
 class ApiTimelineRSS(ZwitscherRequestHandler):
-    def get(self):
-        nutzer = models.Nutzer.all().filter('handle =', 'mdornseif').get()
-        self.response.headers['content-type'] = 'application/xml; charset=utf-8'
+    @http_basic_auth
+    def get(self, nutzer):
+        self.response.headers['Content-Type'] = 'application/xml; charset=utf-8'
         self.response.out.write(formats.timeline_as_rss(nutzer, self._create_absolute_url))
 
 
 class ApiRateLimit(ZwitscherRequestHandler):
     """This is a dummy."""
-    def get(self):
-        self.response.headers['content-type'] = 'application/xml; charset=utf-8'
+    @http_basic_auth
+    def get(self, nutzer):
+        self.response.headers['Content-Type'] = 'application/xml; charset=utf-8'
         self.response.out.write("""<?xml version="1.0" encoding="UTF-8"?>
 <hash>
     <remaining-hits type="integer">20000</remaining-hits>
@@ -227,8 +257,9 @@ class ApiRateLimit(ZwitscherRequestHandler):
 
 class ApiReplies(ZwitscherRequestHandler):
     """This is a dummy."""
-    def get(self):
-        self.response.headers['content-type'] = 'application/xml; charset=utf-8'
+    @http_basic_auth
+    def get(self, nutzer):
+        self.response.headers['Content-Type'] = 'application/xml; charset=utf-8'
         self.response.out.write("""<?xml version="1.0" encoding="UTF-8"?>
 <statuses type="array">
 </statuses>""")
@@ -245,7 +276,6 @@ class XMPPHandler(ZwitscherRequestHandler):
         zwitsch = create_zwitch(message.body, email=sender)
         message.reply("See %s" % self._create_absolute_url(zwitsch.get_url()))
         self.response.out.write('OK')
-
 
 
 def main():
