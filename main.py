@@ -188,6 +188,22 @@ class UserHandler(ZwitscherRequestHandler):
             path = os.path.join(os.path.dirname(__file__), 'templates/nutzer.html')
             self.response.out.write(template.render(path, template_values))
 
+
+class UserSettingsHandler(ZwitscherRequestHandler):
+    def get(self, handle):
+        nutzer = self.get_aktueller_nutzer()
+
+        if not handle:
+            self.redirect('/')
+        else:
+            template_values = {
+                'aktueller_nutzer': nutzer,
+                'nutzer': nutzer
+                }
+            path = os.path.join(os.path.dirname(__file__), 'templates/settings.html')
+            self.response.out.write(template.render(path, template_values))
+
+
 class UserFollowHandler(ZwitscherRequestHandler):
     def get(self, handle):
         aktueller_nutzer = self.get_aktueller_nutzer()
@@ -291,6 +307,7 @@ def main():
         # User facing
         ('/zwitsch/(.+)', ZwitschHandler),
         ('/nutzer/([a-z]+)/change_follow_status', UserFollowHandler),
+        ('/nutzer/([a-z]+)/settings', UserSettingsHandler),
         ('/nutzer/([a-z]+)', UserHandler),
         ('/timeline', TimelineHandler),  # Subscribte Tweets
         ('/', MainHandler),              # Alle Tweets

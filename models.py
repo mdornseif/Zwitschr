@@ -101,6 +101,7 @@ class Zwitsch(db.Expando):
     email = db.EmailProperty(required=False)
     source = db.StringProperty(required=False, default='web')
     in_reply_to = db.StringProperty(required=False)
+    in_reply_to_handle = db.StringProperty(required=False)
 
     def __unicode__(self):
         context = {'handle': self.handle,
@@ -170,6 +171,10 @@ def create_zwitch(content, user=None, email=None, handle=None, guid=None, in_rep
         zwitsch.email = email
     if created_at:
         zwitsch.created_at = created_at
+    if in_reply_to:
+        rep = Zwitsch.all().filter('guid =', in_reply_to).get()
+        if rep:
+            zwitsch.in_reply_to_handle = rep.handle
     zwitsch.put()
     return zwitsch
 

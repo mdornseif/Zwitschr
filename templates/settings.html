@@ -1,0 +1,42 @@
+{% extends "user_base.html" %}
+{% block content %}
+
+  <div>
+      Avatar:<br>
+      <img src="{{nutzer.gravatar}}">
+      <br>
+      Change it at <a href="http://www.gravatar.com/">www.gravatar.com</a>
+  </div>
+
+  <div>
+      E-Mail: {{ nutzer.email }}
+  </div>
+
+  <div>
+      Google-User: {{ nutzer.user.nickname }}
+  </div>
+
+  <div>
+      Handle: {{ nutzer.handle }}
+  </div>
+
+  <div>
+      API Key: {{ nutzer.get_api_key }}
+  </div>
+
+  <div>
+      Daten für Twitter Clients<br/>
+  </div>
+
+  <div>
+      User: {{ nutzer.handle }}<br/>
+      Password: {{ nutzer.get_api_key }}<br/>
+      API root: http://zwitschr.appspot.com/
+  </div>
+
+  <div>
+      Twitterriffic:<br/>
+      <code>defaults write com.iconfactory.Twitterrific baseUrl zwitschr.appspot.com</code>
+  </div>
+      
+{% endblock %}
