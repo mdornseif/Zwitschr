@@ -104,6 +104,10 @@ class MainHandler(ZwitscherRequestHandler):
         self.response.out.write(template.render(path, template_values))
 
     def post(self):
+        user = users.get_current_user()
+        if user:
+            aktueller_nutzer = models.Nutzer.all().filter('user =', user).get()
+
         args = dict(content=self.request.get('content'))
         if self.request.get('created_at'):
             # timezonehandling needs more thought
@@ -116,14 +120,16 @@ class MainHandler(ZwitscherRequestHandler):
             else:
                 created_at = datetime.datetime.strptime(ts, '%Y-%m-%dT%H:%M:%S')
             args['created_at'] = created_at
-        if self.request.get('handle'):
-            args['handle'] = self.request.get('handle')
         if self.request.get('in_reply_to'):
             args['in_reply_to'] = self.request.get('in_reply_to')
         if self.request.get('guid'):
             args['guid'] = self.request.get('guid')
         if self.request.get('email'):
             args['email'] = self.request.get('email')
+        if self.request.get('handle'):
+            args['handle'] = self.request.get('handle')
+        if not args.get('handle'):
+             args['handle'] = aktueller_nutzer.handle
 
         # prevent dupes
         if self.request.get('guid'):

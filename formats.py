@@ -51,7 +51,7 @@ def _ConvertDictToXmlRecurse(parent, dictitem, listnames):
                 parent.append(elem)
                 _ConvertDictToXmlRecurse(elem, child, listnames)
     else:
-        parent.text = str(dictitem)
+        parent.text = unicode(dictitem)
     
 
 def ConvertDictToXml(xmldict, roottag='data', listnames=None):

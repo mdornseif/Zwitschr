@@ -9,19 +9,42 @@
         <link rel="stylesheet" type="text/css" href="/static/zwitschr.css">
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
     <script src="/static/js/jquery.timeago.js" type="text/javascript"></script>
+    <script src="/static/js/zwitschr.js" type="text/javascript"></script>
     <script type="text/javascript">
         jQuery(document).ready(function() {
             jQuery("abbr.published").timeago();
+            jQuery('#notice_data-text').focus();
+
         });
     </script>
     </head>
     <body>
         <div id="wrap">
-          <a href="/nutzer/{{ aktueller_nutzer.handle }}">{{ aktueller_nutzer.handle }}</a>
-          <a href="/nutzer/{{ aktueller_nutzer.handle }}/settings">Settings</a>
-          <a href="{{ aktueller_nutzer.logout_url }}">Logout</a>
+          <div id="topnav">
+            <a href="/timeline">Timeline</a>
+            <i><a href="/nutzer/{{ aktueller_nutzer.handle }}">{{ aktueller_nutzer.handle }}</a></i>
+            | <a href="/nutzer/{{ aktueller_nutzer.handle }}/settings">Einstellungen</a>
+            | <a href="{{ aktueller_nutzer.logout_url }}">Logout</a>
+          </div>
           <div id="header">
             <h1><a href="/">Zwitschr!</a></h1>
+
+            <div id="inputform">
+                <form id="form_notice" method="post" action="." enctype="multipart/form-data">
+                    <fieldset>
+                        <legend>Send a notice</legend>
+                        <textarea id="notice_data-text" cols="35" rows="4" name="content"></textarea>
+                        <dl class="form_note">
+                            <dt>Available characters</dt>
+                            <dd id="notice_text-count">140</dd>
+                        </dl>
+                        <input name="inreplyto" type="hidden" id="notice_in-reply-to" value="" />
+                        <input id="notice_action-submit" class="submit" name="status_submit" type="submit" value="Send" />
+                    </fieldset>
+                    <input type="hidden" name="ajax" value="1" />
+                </form>
+            </div>
+
           </div>
           {% block body %}
               <div id="content">
