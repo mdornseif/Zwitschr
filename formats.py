@@ -32,7 +32,6 @@ def _format_date(dt):
             dt.year, dt.hour, dt.minute, dt.second)
 
 # from myPLfrontend/experiment.py
-
 def _ConvertDictToXmlRecurse(parent, dictitem, listnames):
     # we can't convert bare lists
     assert not isinstance(dictitem, list)

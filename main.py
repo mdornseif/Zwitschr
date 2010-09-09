@@ -289,7 +289,7 @@ class XMPPHandler(ZwitscherRequestHandler):
     def post(self):
         message = xmpp.Message(self.request.POST)
         sender = message.sender.split('/')[0]
-        zwitsch = create_zwitch(message.body, email=sender)
+        zwitsch = models.create_zwitch(message.body, email=sender)
         message.reply("See %s" % self._create_absolute_url(zwitsch.get_url()))
         self.response.out.write('OK')
 
