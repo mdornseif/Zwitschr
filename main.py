@@ -64,8 +64,9 @@ class ZwitscherRequestHandler(webapp.RequestHandler):
     def get_aktueller_nutzer(self):
         # force Login
         user = users.get_current_user()
+        logging.debug(user)
         if not user:
-            self.redirect(users.create_login_url(self.request.uri))
+            self.redirect(self.create_openid_url(self.request.url))
             return None
 
         results = models.Nutzer.all().filter('user =', user)
@@ -79,6 +80,10 @@ class ZwitscherRequestHandler(webapp.RequestHandler):
         aktueller_nutzer.logout_url = users.create_logout_url('/')
         aktueller_nutzer.is_admin = users.is_current_user_admin()
         return aktueller_nutzer
+
+    def create_openid_url(self, continue_url):
+        continue_url = urlparse.urljoin(self.request.url, continue_url)
+        return "/_ah/login_required?continue=%s" % urllib.quote(continue_url)
 
 
 class TimelineHandler(ZwitscherRequestHandler):
@@ -95,6 +100,8 @@ class TimelineHandler(ZwitscherRequestHandler):
 class MainHandler(ZwitscherRequestHandler):
     def get(self):
         aktueller_nutzer = self.get_aktueller_nutzer()
+        if not aktueller_nutzer:
+            return
         zwitsches = models.Zwitsch.all().order('-created_at').fetch(30)
         template_values = {
             'zwitsches': zwitsches,
@@ -300,8 +307,31 @@ class XMPPHandler(ZwitscherRequestHandler):
         self.response.out.write('OK')
 
 
+################
+
+from google.appengine.api.users import get_current_user, create_login_url
+
+
+class OpenIdLoginHandler(webapp.RequestHandler):
+  def get(self):
+    continue_url = self.request.GET.get('continue')
+    openid_url = None
+    if self.request.GET.get('cyberlogi.x'):
+        openid_url = 'https://www.google.com/accounts/o8/site-xrds?hd=cyberlogi.de'
+    if self.request.GET.get('hudora.x'):
+        openid_url = 'https://www.google.com/accounts/o8/site-xrds?hd=hudora.de'
+    logging.info(openid_url)
+    if not openid_url:
+      path = os.path.join(os.path.dirname(__file__), 'templates', 'login.html')
+      self.response.out.write(template.render(path, {'continue': continue_url}))
+    else:
+      self.redirect(users.create_login_url(continue_url, None, openid_url))
+
+
+
 def main():
     application = webapp.WSGIApplication([
+        ('/_ah/login_required', OpenIdLoginHandler),
         # API
         ('/statuses/friends_timeline.rss', ApiTimelineRSS),
         ('/statuses/friends_timeline.xml', ApiTimeline),

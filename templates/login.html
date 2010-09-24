@@ -1,0 +1,20 @@
+<html>
+<head>
+  <title>Log in with OpenID</title>
+</head>
+<body style="color: black; margin:50px 0px; padding:0px; text-align:center;">
+<div style="margin-left: 10%; margin-right: 10%;">
+  <h1 style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 90px; font-style: normal; font-weight: bold; letter-spacing: -6px; ">Login</h1>
+
+  <form method="get" action="/_ah/login_required">
+    {% if continue %}
+      <input type="hidden" name="continue" value="{{continue|escape}}" />
+    {% endif %}
+
+<input type="image" src='/static/hudora.png' width='200' style="padding:15px;" name="hudora"><br/>
+<input type="image" src='/static/cyberlogi.png' width='200' style="padding:15px;" name="cyberlogi"><br/>
+  </form>
+</div>
+
+</body>
+</html>
